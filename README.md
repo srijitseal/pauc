@@ -1,6 +1,9 @@
 # pAUC
 
-Simple Python package to calculate ROC AUC with confidence intervals using DeLong’s method.
+[![PyPI](https://img.shields.io/pypi/v/pauc.svg)](https://pypi.org/project/pauc/)
+[![Python Tests](https://github.com/YOUR_USERNAME/pauc/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/pauc/actions/workflows/ci.yml)
+
+A simple Python package to calculate ROC AUC confidence intervals using DeLong’s method.
 
 ## Installation
 
