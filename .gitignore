@@ -1,0 +1,17 @@
+# Ignore Python build artifacts and caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Distribution / packaging
+build/
+dist/
+
+# Notebooks checkpoint files
+.ipynb_checkpoints/
+
+# Virtual environment
+env/
+venv/
+
