@@ -1,0 +1,41 @@
+Metadata-Version: 2.4
+Name: pauc
+Version: 0.1.0
+Summary: Compute ROC AUC and confidence intervals using DeLong’s method
+Home-page: https://github.com/srijitseal/pauc
+Author: Srijit Seal
+Author-email: srijit@understanding.bio
+License: MIT
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: pandas
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# pAUC
+
+Simple Python package to calculate ROC AUC with confidence intervals using DeLong’s method.
+
+## Installation
+
+pip install pauc
+
+## Usage
+
+from pauc import roc_auc_ci_score
+
+auc, (lb, ub) = roc_auc_ci_score(y_true, y_pred)
+print(f'AUC: {auc}, 95% CI: ({lb}, {ub})')
