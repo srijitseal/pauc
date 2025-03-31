@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pauc
-Version: 0.1.0
+Version: 0.1.1
 Summary: Compute ROC AUC and confidence intervals using DeLong’s method
 Home-page: https://github.com/srijitseal/pauc
 Author: Srijit Seal
@@ -27,7 +27,10 @@ Dynamic: summary
 
 # pAUC
 
-Simple Python package to calculate ROC AUC with confidence intervals using DeLong’s method.
+[![PyPI](https://img.shields.io/pypi/v/pauc.svg)](https://pypi.org/project/pauc/)
+[![Python Tests](https://github.com/srijitseal/pauc/actions/workflows/ci.yml/badge.svg)](https://github.com/srijitseal/pauc/actions/workflows/ci.yml)
+
+A simple Python package to calculate ROC AUC confidence intervals using DeLong’s method.
 
 ## Installation
 
