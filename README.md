@@ -4,12 +4,10 @@ A simple Python package to calculate ROC AUC confidence intervals using DeLongâ€
 </h3>
 <br/>
 
-<div align="center">
 [![PyPI](https://img.shields.io/pypi/v/pauc.svg)](https://pypi.org/project/pauc/)
-[![Python Tests](https://github.com/srijitseal/pauc/actions/workflows/ci.yml/badge.svg)](https://github.com/srijitseal/pauc/actions/workflows/ci.yml)
-<img alt="GitHub code size in bytes" src="https://img.shields.io/github/repo-size/srijitseal/pauc">
-</div>
+[![Python Tests](https://github.com/YOUR_USERNAME/pauc/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/pauc/actions/workflows/ci.yml)
 
+<img alt="GitHub code size in bytes" src="https://img.shields.io/github/repo-size/srijitseal/pauc">
 
 
 ---
