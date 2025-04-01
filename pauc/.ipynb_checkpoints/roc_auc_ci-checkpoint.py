@@ -111,7 +111,8 @@ def calc_pvalue(aucs, sigma):
     """
     l = np.array([[1, -1]])
     z = np.abs(np.diff(aucs)) / np.sqrt(np.dot(np.dot(l, sigma), l.T))
-    return np.log10(2) + scipy.stats.norm.logsf(z, loc=0, scale=1) / np.log(10)
+    return float(np.log10(2) + stats.norm.logsf(z, loc=0, scale=1).item() / np.log(10))
+
 
 
 def compute_ground_truth_statistics(ground_truth, sample_weight=None):
@@ -153,7 +154,7 @@ def delong_roc_test(ground_truth, predictions_one, predictions_two):
           np.array of floats of the probability of being class 1
     """
     sample_weight = None
-    order, label_1_count = compute_ground_truth_statistics(ground_truth)
+    order, label_1_count, _ = compute_ground_truth_statistics(ground_truth)
     predictions_sorted_transposed = np.vstack((predictions_one, predictions_two))[:, order]
     aucs, delongcov = fastDeLong(predictions_sorted_transposed, label_1_count)
     return calc_pvalue(aucs, delongcov)
