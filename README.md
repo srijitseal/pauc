@@ -1,7 +1,13 @@
-<h1 align="center">pAUC</h1>
+<p align="center">
+  <img src="assets/logo.png" alt="pAUC Logo" width="200"/>
+</p>
+
 <h3 align="center">
-A simple Python package to calculate ROC AUC confidence intervals using DeLong’s method
+pAUC: A simple Python package to calculate ROC AUC confidence intervals using DeLong’s method
 </h3>
+
+
+
 <br/>
 
 [![PyPI](https://img.shields.io/pypi/v/pauc.svg)](https://pypi.org/project/pauc/)
