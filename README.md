@@ -74,7 +74,7 @@ This displays:
 
 - ✅ Mean ROC curve
 - 📉 Shaded 95% CI band from bootstrapping
-- 📈 AUC with TPR envelope AUC range in the legend
+- 📈 AUC with TPR envelope AUC range
 - ℹ️ TPR envelope range is not a formal statistical CI—it's the area under the lower/upper percentile ROC curves.
 
 ---
