@@ -65,7 +65,7 @@ print(f"DeLong’s test p-value: {p_value}")
 ## 📌 Plot ROC Curve with Confidence Interval
 
 ```python
-rom pauc import plot_roc_with_ci
+from pauc import plot_roc_with_ci
 plot_roc_with_ci(y_true, y_pred)
 ```
 <p align="center"> <img src="assets/roc_ci_example.png" alt="ROC Curve with Confidence Interval" width="500"/> </p>
