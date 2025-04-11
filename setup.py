@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pauc',
-    version='0.1.4',
+    version='0.1.5',
     packages=find_packages(),
     description='Compute ROC AUC and confidence intervals using DeLong’s method',
     long_description=open('README.md').read(),
