@@ -1,6 +1,11 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 import scipy.stats as stats
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, roc_auc_score
+from sklearn.utils import resample
+from numpy import trapz
+
 
 # from https://github.com/PatWalters/comparing_classifiers/blob/master/delong_ci.py
 # from https://github.com/yandexdataschool/roc_comparison/blob/master/compare_auc_delong_xu.py
@@ -185,3 +190,91 @@ def roc_auc_ci_score(y_true, y_pred, alpha=0.95):
         ci[ci < 0] = 0
 
     return auc, ci
+
+def bootstrap_auc_ci(y_true, y_score, n_bootstraps=1000, seed=42):
+    rng = np.random.RandomState(seed)
+    aucs = []
+
+    for _ in range(n_bootstraps):
+        indices = rng.randint(0, len(y_true), len(y_true))
+        if len(np.unique(y_true[indices])) < 2:
+            continue
+        y_true_boot = y_true[indices]
+        y_score_boot = y_score[indices]
+        aucs.append(roc_auc_score(y_true_boot, y_score_boot))
+
+    print("This gives an empirical confidence interval of the AUC using bootstrapping. It may differ slightly due to randomness.")
+    
+    aucs = np.array(aucs)
+    return np.mean(aucs), np.percentile(aucs, [2.5, 97.5])
+    
+def bootstrap_roc_curve_ci(y_true, y_score, n_bootstraps=1000, seed=42):
+    rng = np.random.RandomState(seed)
+    tpr_list = []
+    fpr_linspace = np.linspace(0, 1, 100)
+
+    for _ in range(n_bootstraps):
+        indices = rng.randint(0, len(y_true), len(y_true))
+        if len(np.unique(y_true[indices])) < 2:
+            continue
+        y_true_boot = y_true[indices]
+        y_score_boot = y_score[indices]
+
+        fpr_boot, tpr_boot, _ = roc_curve(y_true_boot, y_score_boot)
+        tpr_interp = np.interp(fpr_linspace, fpr_boot, tpr_boot)
+        tpr_interp[0] = 0.0
+        tpr_list.append(tpr_interp)
+
+    tpr_arr = np.array(tpr_list)
+    tpr_mean = np.mean(tpr_arr, axis=0)
+    tpr_lower = np.percentile(tpr_arr, 2.5, axis=0)
+    tpr_upper = np.percentile(tpr_arr, 97.5, axis=0)
+
+    return fpr_linspace, tpr_mean, tpr_lower, tpr_upper
+
+def plot_roc_with_ci(y_true, y_score):
+    fpr, tpr_mean, tpr_lower, tpr_upper = bootstrap_roc_curve_ci(y_true, y_score)
+    auc, ci = roc_auc_ci_score(y_true, y_score)
+
+    # AUC for the mean ROC curve
+    auc_mean = trapz(tpr_mean, fpr)
+    
+    # AUC for the lower CI bound
+    auc_lower = trapz(tpr_lower, fpr)
+    
+    # AUC for the upper CI bound
+    auc_upper = trapz(tpr_upper, fpr)
+    
+   
+    print(f"AUC from TPR curves: {auc_mean:.3f}")
+    print(f"TPR Envelope AUC range: ({auc_lower:.3f}, {auc_upper:.3f})")
+    print("TPR Envelope AUC range is not the statistical confidence interval, it's just the area under the lower/upper percentile ROC curves.")
+
+
+    fig, ax = plt.subplots(figsize=(8, 6), dpi=200)
+
+    # ROC curve and CI band
+    ax.plot(fpr, tpr_mean, color='blue', label='Mean ROC')
+    ax.fill_between(fpr, tpr_lower, tpr_upper, color='blue', alpha=0.2, label='95% CI band')
+    ax.plot([0, 1], [0, 1], 'k--', alpha=0.4)
+
+    # Style
+    ax.set_title(f"ROC Curve (AUC = {auc:.3f}, 95% CI [{ci[0]:.3f}, {ci[1]:.3f}])")
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate")
+    ax.legend(loc="lower right")
+    ax.grid(True, linestyle='--', alpha=0.6)
+
+    # Remove top and right borders
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    # Add axis arrows
+    ax.annotate('', xy=(1.02, 0), xytext=(0, 0),
+                arrowprops=dict(arrowstyle='->', lw=1.5), xycoords='axes fraction')
+    ax.annotate('', xy=(0, 1.02), xytext=(0, 0),
+                arrowprops=dict(arrowstyle='->', lw=1.5), xycoords='axes fraction')
+
+    plt.tight_layout()
+    plt.show()
+

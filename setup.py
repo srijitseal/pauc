@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pauc',
-    version='0.1.3',
+    version='0.1.4',
     packages=find_packages(),
     description='Compute ROC AUC and confidence intervals using DeLong’s method',
     long_description=open('README.md').read(),
@@ -10,7 +10,9 @@ setup(
     install_requires=[
         'numpy',
         'scipy',
-        'pandas'
+        'pandas',
+        'matplotlib',
+        'scikit-learn'
     ],
     tests_require=[
         'pytest',
