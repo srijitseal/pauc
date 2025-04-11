@@ -62,7 +62,22 @@ print(f"DeLong’s test p-value: {p_value}")
 ```
 
 ---
+## 📌 Plot ROC Curve with Confidence Interval
 
+```python
+rom pauc import plot_roc_with_ci
+plot_roc_with_ci(y_true, y_pred)
+```
+<p align="center"> <img src="assets/roc_ci_example.png" alt="ROC Curve with Confidence Interval" width="500"/> </p>
+
+This displays:
+
+- ✅ Mean ROC curve
+- 📉 Shaded 95% CI band from bootstrapping
+- 📈 AUC with TPR envelope AUC range in the legend
+- ℹ️ TPR envelope range is not a formal statistical CI—it's the area under the lower/upper percentile ROC curves.
+
+---
 ## 📌 Why DeLong’s Test?
 
 DeLong’s method ([DeLong et al. 1988](https://doi.org/10.2307/2531595), [Sun and Xu 2014](https://doi.org/10.1109/LSP.2014.2337313)) is:
