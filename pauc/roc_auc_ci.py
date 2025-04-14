@@ -1,10 +1,9 @@
 import numpy as np
-import pandas as pd
 import scipy.stats as stats
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, roc_auc_score
-from sklearn.utils import resample
 from numpy import trapz
+from typing import Tuple, Optional
 
 
 # from https://github.com/PatWalters/comparing_classifiers/blob/master/delong_ci.py
@@ -12,7 +11,9 @@ from numpy import trapz
 
 # AUC comparison adapted from
 # https://github.com/Netflix/vmaf/
-def compute_midrank(x):
+def compute_midrank(
+        x: np.ndarray
+    ) -> np.ndarray:
     """Computes midranks.
     Args:
        x - a 1D numpy array
@@ -37,7 +38,10 @@ def compute_midrank(x):
     return T2
 
 
-def compute_midrank_weight(x, sample_weight):
+def compute_midrank_weight(
+        x: np.ndarray,
+        sample_weight: np.ndarray
+    ) -> np.ndarray:
     """Computes midranks.
     Args:
        x - a 1D numpy array
@@ -61,7 +65,10 @@ def compute_midrank_weight(x, sample_weight):
     return T2
 
 
-def fastDeLong(predictions_sorted_transposed, label_1_count):
+def fastDeLong(
+        predictions_sorted_transposed: np.ndarray,
+        label_1_count: int
+    ) -> Tuple[np.ndarray, np.ndarray]:
     """
     The fast version of DeLong's method for computing the covariance of
     unadjusted AUC.
@@ -106,7 +113,10 @@ def fastDeLong(predictions_sorted_transposed, label_1_count):
     return aucs, delongcov
 
 
-def calc_pvalue(aucs, sigma):
+def calc_pvalue(
+        aucs: np.ndarray,
+        sigma: np.ndarray
+    ) -> float:
     """Computes log(10) of p-values.
     Args:
        aucs: 1D array of AUCs
@@ -120,7 +130,10 @@ def calc_pvalue(aucs, sigma):
 
 
 
-def compute_ground_truth_statistics(ground_truth, sample_weight=None):
+def compute_ground_truth_statistics(
+        ground_truth: np.ndarray,
+        sample_weight: Optional[np.ndarray] = None
+    ) -> Tuple[np.ndarray, int, Optional[np.ndarray]]:
     assert np.array_equal(np.unique(ground_truth), [0, 1])
     order = (-ground_truth).argsort()
     label_1_count = int(ground_truth.sum())
@@ -132,7 +145,10 @@ def compute_ground_truth_statistics(ground_truth, sample_weight=None):
     return order, label_1_count, ordered_sample_weight
 
 
-def delong_roc_variance(ground_truth, predictions):
+def delong_roc_variance(
+        ground_truth: np.ndarray,
+        predictions: np.ndarray
+    ) -> Tuple[float, np.ndarray]:
     """
     Computes ROC AUC variance for a single set of predictions
     Args:
@@ -148,7 +164,11 @@ def delong_roc_variance(ground_truth, predictions):
     return aucs[0], delongcov
 
 
-def delong_roc_test(ground_truth, predictions_one, predictions_two):
+def delong_roc_test(
+        ground_truth: np.ndarray,
+        predictions_one: np.ndarray,
+        predictions_two: np.ndarray
+    ) -> float:
     """
     Computes log(p-value) for hypothesis that two ROC AUCs are different
     Args:
@@ -165,7 +185,7 @@ def delong_roc_test(ground_truth, predictions_one, predictions_two):
     return calc_pvalue(aucs, delongcov)
 
 
-def roc_auc_ci_score(y_true, y_pred, alpha=0.95):
+def roc_auc_ci_score(y_true: np.ndarray, y_pred: np.ndarray, alpha: float = 0.95) -> Tuple[float, np.ndarray]:
     auc, auc_cov = delong_roc_variance(y_true, y_pred)
     auc_std = np.sqrt(auc_cov)
 
@@ -191,7 +211,13 @@ def roc_auc_ci_score(y_true, y_pred, alpha=0.95):
 
     return auc, ci
 
-def bootstrap_auc_ci(y_true, y_score, n_bootstraps=1000, seed=42):
+
+def bootstrap_auc_ci(
+        y_true: np.ndarray,
+        y_score: np.ndarray,
+        n_bootstraps: int = 1000,
+        seed: int = 42
+    ) -> Tuple[float, np.ndarray]:
     rng = np.random.RandomState(seed)
     aucs = []
 
@@ -208,7 +234,13 @@ def bootstrap_auc_ci(y_true, y_score, n_bootstraps=1000, seed=42):
     aucs = np.array(aucs)
     return np.mean(aucs), np.percentile(aucs, [2.5, 97.5])
     
-def bootstrap_roc_curve_ci(y_true, y_score, n_bootstraps=1000, seed=42):
+
+def bootstrap_roc_curve_ci(
+        y_true: np.ndarray,
+        y_score: np.ndarray,
+        n_bootstraps: int = 1000,
+        seed: int = 42
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     rng = np.random.RandomState(seed)
     tpr_list = []
     fpr_linspace = np.linspace(0, 1, 100)
@@ -232,7 +264,12 @@ def bootstrap_roc_curve_ci(y_true, y_score, n_bootstraps=1000, seed=42):
 
     return fpr_linspace, tpr_mean, tpr_lower, tpr_upper
 
-def plot_roc_with_ci(y_true, y_score):
+
+def plot_roc_with_ci(
+        y_true: np.ndarray,
+        y_score: np.ndarray,
+        save_path: Optional[str] = None
+    ) -> None:
     fpr, tpr_mean, tpr_lower, tpr_upper = bootstrap_roc_curve_ci(y_true, y_score)
     auc, ci = roc_auc_ci_score(y_true, y_score)
 
@@ -244,12 +281,10 @@ def plot_roc_with_ci(y_true, y_score):
     
     # AUC for the upper CI bound
     auc_upper = trapz(tpr_upper, fpr)
-    
-   
+       
     print(f"AUC from TPR curves: {auc_mean:.3f}")
     print(f"TPR Envelope AUC range: ({auc_lower:.3f}, {auc_upper:.3f})")
     print("TPR Envelope AUC range is not the statistical confidence interval, it's just the area under the lower/upper percentile ROC curves.")
-
 
     fig, ax = plt.subplots(figsize=(8, 6), dpi=200)
 
@@ -276,5 +311,11 @@ def plot_roc_with_ci(y_true, y_score):
                 arrowprops=dict(arrowstyle='->', lw=1.5), xycoords='axes fraction')
 
     plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+        print(f"Saved to {save_path}")
     plt.show()
+
+
 
