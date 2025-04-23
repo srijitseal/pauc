@@ -353,10 +353,10 @@ def plot_roc_with_ci(
             y_true_cls, y_score_cls,
             n_bootstraps=n_bootstraps, seed=seed
         )
-        auc, ci      = roc_auc_ci_score(y_true_cls, y_score_cls)
+        auc, ci = roc_auc_ci_score(y_true_cls, y_score_cls)
 
-        r, c         = divmod(cls, n_cols)
-        ax           = axes[r][c]
+        r, c = divmod(cls, n_cols)
+        ax = axes[r][c]
 
         # main ROC and band
         ax.plot(fpr, tpr_mean, lw=1.5, label=f"AUC = {auc:.3f}")
@@ -381,7 +381,11 @@ def plot_roc_with_ci(
         r, c = divmod(extra, n_cols)
         fig.delaxes(axes[r][c])
 
-    fig.suptitle(fig_title or "ROC curves", fontsize=14)
+    if fig_title:
+        title = fig_title
+    else:
+        title = f"ROC Curve (AUC = {auc:.3f}, 95% CI = {ci:.3f})"
+    fig.suptitle(title, fontsize=14)
     plt.tight_layout(rect=[0, 0.03, 1, 0.97])
 
     if save_path:
