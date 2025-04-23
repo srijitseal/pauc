@@ -1,10 +1,10 @@
 import numpy as np
 import scipy.stats as stats
 import matplotlib.pyplot as plt
+import math
 from sklearn.metrics import roc_curve, roc_auc_score
-from numpy import trapz
 from typing import Tuple, Optional
-
+from sklearn.preprocessing import label_binarize
 
 # from https://github.com/PatWalters/comparing_classifiers/blob/master/delong_ci.py
 # from https://github.com/yandexdataschool/roc_comparison/blob/master/compare_auc_delong_xu.py
@@ -265,56 +265,129 @@ def bootstrap_roc_curve_ci(
     return fpr_linspace, tpr_mean, tpr_lower, tpr_upper
 
 
+def _prepare_targets_scores(
+    y_true: np.ndarray,
+    y_score: np.ndarray
+):
+    """
+    Detect task type & return (Y_onehot, Y_score_2D, n_classes, task_name)
+    Works for binary, multiclass and multilabel.  For binary we make sure
+    to return TWO columns (neg / pos) so that the downstream loop over
+    classes [0, 1] is always valid.
+    """
+    # ---------- binary or multiclass (single-label) ----------
+    if y_true.ndim == 1:
+        n_classes = int(np.max(y_true)) + 1          # assumes labels start at 0
+        if n_classes == 2:
+            task_name = "binary"
+
+            # --- one-hot targets (N, 2): [neg, pos] ------------
+            y_true_1hot = np.column_stack([1 - y_true, y_true])
+
+            # --- probability array  (N, 2): P(neg), P(pos) -----
+            if y_score.ndim == 1:                    # shape (N,)
+                y_score_2d = np.column_stack([1 - y_score, y_score])
+            else:                                    # shape (N, k)
+                if y_score.shape[1] == 1:            # (N, 1)
+                    y_score_2d = np.column_stack([1 - y_score[:, 0], y_score[:, 0]])
+                else:                                # already (N, 2)
+                    y_score_2d = y_score
+
+        else:                                        # -------- multiclass -------
+            task_name = "multiclass"
+            y_true_1hot = label_binarize(y_true, classes=list(range(n_classes)))
+            y_score_2d  = y_score                      # expected shape (N, C)
+
+    # ---------- multilabel (already one-hot) ------------------
+    else:
+        task_name  = "multilabel"
+        n_classes  = y_true.shape[1]
+        y_true_1hot = y_true.astype(int)
+        y_score_2d  = y_score
+
+    return y_true_1hot, y_score_2d, n_classes, task_name
+
+
+
 def plot_roc_with_ci(
-        y_true: np.ndarray,
-        y_score: np.ndarray,
-        save_path: Optional[str] = None
-    ) -> None:
-    fpr, tpr_mean, tpr_lower, tpr_upper = bootstrap_roc_curve_ci(y_true, y_score)
-    auc, ci = roc_auc_ci_score(y_true, y_score)
+    y_true:  np.ndarray,
+    y_score: np.ndarray,
+    save_path: Optional[str] = None,
+    fig_title: Optional[str] = None,
+    n_bootstraps: int = 1000,
+    seed: int = 42,
+) -> None:
+    """
+    Draw ROC curves (with 95 % CI) for binary / multiclass / multilabel setups
+    on one canvas with tidy sub-plots.
 
-    # AUC for the mean ROC curve
-    auc_mean = trapz(tpr_mean, fpr)
-    
-    # AUC for the lower CI bound
-    auc_lower = trapz(tpr_lower, fpr)
-    
-    # AUC for the upper CI bound
-    auc_upper = trapz(tpr_upper, fpr)
-       
-    print(f"AUC from TPR curves: {auc_mean:.3f}")
-    print(f"TPR Envelope AUC range: ({auc_lower:.3f}, {auc_upper:.3f})")
-    print("TPR Envelope AUC range is not the statistical confidence interval, it's just the area under the lower/upper percentile ROC curves.")
+    Parameters
+    ----------
+    y_true : array-like
+        * binary / multiclass : shape (N,)
+        * multilabel         : shape (N, C)
+    y_score : array-like
+        probability scores – same shape as y_true except for binary
+        where shape can be (N,) or (N, 2) (class-1 prob in column 1)
+    save_path : str | None
+        if given, the figure is stored as PNG.
+    fig_title : str | None
+        custom super-title.  Defaults to "ROC curves".
+    """
+    Y, S, C, task = _prepare_targets_scores(y_true, y_score)
 
-    fig, ax = plt.subplots(figsize=(8, 6), dpi=200)
+    # -------- set up subplot grid -------------
+    n_rows = math.ceil(math.sqrt(C))
+    n_cols = math.ceil(C / n_rows)
+    fig, axes = plt.subplots(
+        n_rows, n_cols, figsize=(4.5 * n_cols, 4.5 * n_rows), dpi=200,
+        squeeze=False
+    )
 
-    # ROC curve and CI band
-    ax.plot(fpr, tpr_mean, color='blue', label='Mean ROC')
-    ax.fill_between(fpr, tpr_lower, tpr_upper, color='blue', alpha=0.2, label='95% CI band')
-    ax.plot([0, 1], [0, 1], 'k--', alpha=0.4)
+    # -------- iterate over classes -------------
+    for cls in range(C):
+        y_true_cls  = Y[:, cls]
+        y_score_cls = S[:, cls]
 
-    # Style
-    ax.set_title(f"ROC Curve (AUC = {auc:.3f}, 95% CI [{ci[0]:.3f}, {ci[1]:.3f}])")
-    ax.set_xlabel("False Positive Rate")
-    ax.set_ylabel("True Positive Rate")
-    ax.legend(loc="lower right")
-    ax.grid(True, linestyle='--', alpha=0.6)
+        fpr, tpr_mean, tpr_low, tpr_up = bootstrap_roc_curve_ci(
+            y_true_cls, y_score_cls,
+            n_bootstraps=n_bootstraps, seed=seed
+        )
+        auc, ci      = roc_auc_ci_score(y_true_cls, y_score_cls)
 
-    # Remove top and right borders
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+        r, c         = divmod(cls, n_cols)
+        ax           = axes[r][c]
 
-    # Add axis arrows
-    ax.annotate('', xy=(1.02, 0), xytext=(0, 0),
-                arrowprops=dict(arrowstyle='->', lw=1.5), xycoords='axes fraction')
-    ax.annotate('', xy=(0, 1.02), xytext=(0, 0),
-                arrowprops=dict(arrowstyle='->', lw=1.5), xycoords='axes fraction')
+        # main ROC and band
+        ax.plot(fpr, tpr_mean, lw=1.5, label=f"AUC = {auc:.3f}")
+        ax.fill_between(fpr, tpr_low, tpr_up, alpha=.25, label="95 % CI")
+        ax.plot([0, 1], [0, 1], "k--", lw=.8)
 
-    plt.tight_layout()
+        # cosmetics
+        ax.set_title(f"Class {cls}")
+        ax.set_xlabel("FPR")
+        ax.set_ylabel("TPR")
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.grid(ls="--", alpha=.4)
+        ax.legend(fontsize=8, loc="lower right")
+
+        # drop spines
+        for side in ["top", "right"]:
+            ax.spines[side].set_visible(False)
+
+    # hide empty panels if any
+    for extra in range(C, n_rows * n_cols):
+        r, c = divmod(extra, n_cols)
+        fig.delaxes(axes[r][c])
+
+    fig.suptitle(fig_title or "ROC curves", fontsize=14)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.97])
 
     if save_path:
-        plt.savefig(save_path, dpi=300)
-        print(f"Saved to {save_path}")
+        fig.savefig(save_path, dpi=300)
+        print(f"Saved ROC panel ➜ {save_path}")
+
     plt.show()
 
 
