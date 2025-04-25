@@ -10,7 +10,6 @@ import os
 import tempfile
 import numpy as np
 import matplotlib
-import matplotlib.pyplot as plt
 from pauc import roc_auc_ci_score, plot_roc_with_ci
 
 
@@ -49,7 +48,7 @@ def test_roc_auc_ci_score_basic():
 
     assert 0 <= auc <= 1
     assert lb <= auc <= ub
-    print("✓ Test passed!")
+    print("Test passed!")
 
 
 def test_roc_auc_ci_perfect_classifier():
@@ -65,7 +64,7 @@ def test_roc_auc_ci_perfect_classifier():
     assert auc == 1.0
     assert lb <= auc <= ub
     assert ub <= 1.0
-    print("✓ Test passed!")
+    print("Test passed!")
 
 
 def test_roc_auc_ci_worst_classifier():
@@ -80,7 +79,7 @@ def test_roc_auc_ci_worst_classifier():
 
     assert auc == 0.0
     assert lb <= auc <= ub
-    print("✓ Test passed!")
+    print("Test passed!")
 
 
 def test_roc_auc_ci_all_zeros():
@@ -94,7 +93,7 @@ def test_roc_auc_ci_all_zeros():
         roc_auc_ci_score(y_true, y_pred)
         assert False, "Should raise error due to lack of class 1"
     except AssertionError as e:
-        print(f"✓ Expected error raised: {e}")
+        print(f"Expected error raised: {e}")
 
 
 def test_roc_auc_ci_all_ones():
@@ -108,7 +107,7 @@ def test_roc_auc_ci_all_ones():
         roc_auc_ci_score(y_true, y_pred)
         assert False, "Should raise error due to lack of class 0"
     except AssertionError as e:
-        print(f"✓ Expected error raised: {e}")
+        print(f"Expected error raised: {e}")
 
 
 # Tests for plot_roc_with_ci
@@ -122,7 +121,7 @@ def test_plot_roc_with_ci_runs():
     try:
         print("Calling plot_roc_with_ci...")
         plot_roc_with_ci(y_true, y_score)
-        print("✓ Function completed without errors")
+        print("Function completed without errors")
     except Exception as e:
         assert False, f"plot_roc_with_ci raised an error: {e}"
 
@@ -148,7 +147,7 @@ def test_binary():
 
     # file created?
     assert os.path.isfile(out_png)
-    print(f"✓ Output file created at {out_png}")
+    print(f"Output file created at {out_png}")
 
 
 def test_multiclass():
@@ -169,7 +168,7 @@ def test_multiclass():
                      fig_title="Multiclass ROC curves")
 
     assert os.path.isfile(out_png)
-    print(f"✓ Output file created at {out_png}")
+    print(f"Output file created at {out_png}")
 
 
 def test_multilabel():
@@ -191,7 +190,7 @@ def test_multilabel():
                      fig_title="Multilabel ROC curves")
 
     assert os.path.isfile(out_png)
-    print(f"✓ Output file created at {out_png}")
+    print(f"Output file created at {out_png}")
     
     
 print("\nAll tests completed successfully!")
