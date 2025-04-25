@@ -354,12 +354,12 @@ def plot_roc_with_ci(
             n_bootstraps=n_bootstraps, seed=seed
         )
         auc, ci = roc_auc_ci_score(y_true_cls, y_score_cls)
-
+        ci = ci.tolist()
         r, c = divmod(cls, n_cols)
         ax = axes[r][c]
 
         # main ROC and band
-        ax.plot(fpr, tpr_mean, lw=1.5, label=f"AUC = {auc:.3f}")
+        ax.plot(fpr, tpr_mean, lw=1.5, label=f"AUC = {auc:.3f}, CI = {ci[0]:.3f} - {ci[1]:.3f}")
         ax.fill_between(fpr, tpr_low, tpr_up, alpha=.25, label="95 % CI")
         ax.plot([0, 1], [0, 1], "k--", lw=.8)
 
@@ -384,15 +384,15 @@ def plot_roc_with_ci(
     if fig_title:
         title = fig_title
     else:
-        title = f"ROC Curve (AUC = {auc:.3f}, 95% CI = {ci:.3f})"
+        title = f"ROC Curve (AUC = {auc:.3f}, 95% CI = {ci[0]:.3f} - {ci[1]:.3f})"
     fig.suptitle(title, fontsize=14)
     plt.tight_layout(rect=[0, 0.03, 1, 0.97])
 
     if save_path:
         fig.savefig(save_path, dpi=300)
         print(f"Saved ROC panel ➜ {save_path}")
-
-    plt.show()
+    else:
+        plt.show()
 
 
 
