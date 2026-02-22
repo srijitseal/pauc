@@ -13,9 +13,6 @@ class SmoothedROC(ROC):
         self.n_cases = original.n_cases
         self.n_controls = original.n_controls
         self.direction = original.direction
-
-        # Inherit aligned scores for plotting consistency if needed,
-        # though smoothed curves are defined by (fpr, tpr)
         self.y_true = original.y_true
         self.y_score = original.y_score
 
@@ -43,7 +40,6 @@ class SmoothedROC(ROC):
 
 def _bw_nrd0(x):
     """
-    Silverman's rule of thumb (nrd0) exactly as implemented in R.
     bw = 0.9 * min(sd, IQR/1.34) * n^-0.2
     """
     if len(x) < 2:
@@ -92,9 +88,6 @@ def smooth(roc, method="binormal", n=2048, bandwidth=None):
         # Grid of FPRs
         grid_fpr = np.linspace(0, 1, n)
         # Prob(Y > thresh) = Phi( a + b * Phi^-1(FPR) )
-        # Note: parameterization might differ slightly based on direction,
-        # but the regression aligns FPR to TPR directly.
-
         # TPR = Phi( intercept + slope * Phi^-1(FPR) )
         # Handle 0 and 1 boundaries
         grid_tpr = np.zeros_like(grid_fpr)
@@ -154,12 +147,6 @@ def smooth(roc, method="binormal", n=2048, bandwidth=None):
         # TPR = 1 - CDF(thresh)
         tpr_smooth = 1 - cdf_cases
         fpr_smooth = 1 - cdf_controls
-
-        # Sort by FPR (monotonically increasing) to plot correctly
-        # The grid goes Low Score -> High Score.
-        # High Score corresponds to Low FPR (Strict threshold).
-        # So fpr_smooth is naturally descending (1 -> 0).
-        # We need ascending 0 -> 1 for plotting.
 
         return SmoothedROC(roc, fpr_smooth[::-1], tpr_smooth[::-1])
 

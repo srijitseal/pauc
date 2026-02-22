@@ -2,7 +2,7 @@
 pAUC: A Python library for ROC curve analysis and comparison.
 """
 
-__version__ = "1.0.0"
+__version__ = "0.3.0"
 
 from .roc_core import ROC, MultiClassROC
 from .stats import (

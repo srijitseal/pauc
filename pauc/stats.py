@@ -187,7 +187,6 @@ def ci_auc(roc, conf_level=0.95, method="delong", n_boot=2000):
 
 
 def _approx(x, y, xout):
-    """Replicates R's approx() function with ties=mean for empirical ROC interpolation."""
     ux, indices = np.unique(x, return_inverse=True)
     uy = np.bincount(indices, weights=y) / np.bincount(indices)
     return np.interp(xout, ux, uy)
@@ -238,8 +237,6 @@ def ci_specificity(roc, sensitivities, conf_level=0.95, n_boot=2000):
 
 
 def venkatraman_test(roc1, roc2, n_perm=2000, paired=True):
-    """Permutation test for ROC curve shape difference evaluated rigidly on the step-function grid."""
-
     def calc_E(r1, r2):
         fpr_grid = np.sort(np.unique(np.concatenate([r1.fpr, r2.fpr])))
         idx1 = np.clip(
@@ -286,8 +283,6 @@ def venkatraman_test(roc1, roc2, n_perm=2000, paired=True):
 def test_operating_point(
     roc1, roc2, point, point_type="specificity", n_boot=2000, paired=True
 ):
-    """Test difference at a specific operating point using bootstrap Z-score with exact R-style interpolation."""
-
     def get_stat(r):
         if point_type == "specificity":
             return _approx(r.fpr, r.tpr, 1.0 - point)
@@ -318,7 +313,6 @@ def test_operating_point(
 
             diffs.append(get_stat(b1) - get_stat(b2))
         except ValueError:
-            # Bypass invalid resamples containing only 1 class
             continue
 
     sd_diff = np.std(diffs, ddof=1)

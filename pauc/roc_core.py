@@ -59,10 +59,8 @@ class ROC:
             [distinct_indices, [len(self.sorted_scores) - 1]]
         )
 
-        # Extract original distinct scores
         original_unique = self.y_score[desc_score_indices][threshold_indices]
 
-        # Calculate midpoints like R's pROC
         if len(original_unique) > 1:
             midpoints = (original_unique[:-1] + original_unique[1:]) / 2.0
         else:
@@ -113,12 +111,10 @@ class ROC:
             return pauc
 
         elif self.partial_auc_focus == "sensitivity":
-            # Interpolate FPR boundaries based on constraints along the TPR axis
             x_vals = np.sort(np.unique(np.concatenate([self.tpr, [min_r, max_r]])))
             x_vals = x_vals[(x_vals >= min_r) & (x_vals <= max_r)]
             y_vals = np.interp(x_vals, self.tpr, self.fpr)
 
-            # Integrate 1 - FPR (Specificity) horizontally over the TPR axis
             pauc = trapezoid(1 - y_vals, x_vals)
 
             if self.standardize_pauc:
@@ -192,9 +188,7 @@ class MultiClassROC:
     def __init__(self, y_true, y_score_matrix):
         """Hand and Till (2001) Multiclass AUC"""
         self.y_true = np.asarray(y_true)
-        self.y_score_matrix = np.asarray(
-            y_score_matrix
-        )  # shape: (n_samples, n_classes)
+        self.y_score_matrix = np.asarray(y_score_matrix)
         self.classes = np.unique(self.y_true)
         self.n_classes = len(self.classes)
 
@@ -207,10 +201,7 @@ class MultiClassROC:
                 c1, c2 = self.classes[i], self.classes[j]
                 mask = (self.y_true == c1) | (self.y_true == c2)
                 y_sub = self.y_true[mask]
-
-                # c1 vs c2
                 roc1 = ROC(y_sub == c1, self.y_score_matrix[mask, i])
-                # c2 vs c1
                 roc2 = ROC(y_sub == c2, self.y_score_matrix[mask, j])
 
                 pair_auc = (roc1.auc + roc2.auc) / 2.0

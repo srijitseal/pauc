@@ -4,7 +4,6 @@ from .stats import ci_sensitivity, ci_specificity
 
 
 def setup_tufte_style():
-    """Configures global matplotlib params for Tufte-like aesthetics."""
     plt.rcParams.update(
         {
             "axes.spines.right": False,
@@ -67,21 +66,18 @@ def plot_roc(
 
     if ax is None:
         fig, ax = plt.subplots(figsize=(6, 6))
-        # Diagonal reference line
         ax.plot([0, 1], [0, 1], color="#cccccc", linestyle="--", linewidth=1, zorder=1)
         ax.set_xlim(-0.02, 1.02)
         ax.set_ylim(-0.02, 1.02)
         ax.set_xlabel("1 - Specificity (FPR)", fontsize=11, labelpad=8)
         ax.set_ylabel("Sensitivity (TPR)", fontsize=11, labelpad=8)
 
-        # Detach spines slightly for the Tufte "floating" look
         ax.spines["left"].set_position(("outward", 5))
         ax.spines["bottom"].set_position(("outward", 5))
 
     if title:
         ax.set_title(title, fontsize=12, pad=15)
 
-    # Clean Tufte-compatible color palette
     if colors is None:
         colors = ["#111111", "#b22222", "#4682b4", "#228b22", "#8b008b", "#d2691e"]
 
@@ -93,13 +89,9 @@ def plot_roc(
         label = roc.name if roc.name else f"Model {i+1}"
         if show_auc:
             label += f" (AUC = {roc.auc:.3f})"
-
-        # Core ROC Line
         (line,) = ax.plot(
             roc.fpr, roc.tpr, label=label, color=color, zorder=10 + i, **kwargs
         )
-
-        # Shade Area Under Curve
         if shade_auc:
             if roc.partial_auc_range:
                 min_r, max_r = roc.partial_auc_range
@@ -127,8 +119,6 @@ def plot_roc(
                 ax.fill_between(
                     roc.fpr, 0, roc.tpr, color=color, alpha=shade_alpha, zorder=2 + i
                 )
-
-        # Shade Confidence Intervals
         if plot_ci:
             grid = np.linspace(0, 1, 100)
             if ci_type == "sensitivity":
@@ -153,8 +143,6 @@ def plot_roc(
                     linewidth=0,
                     zorder=5 + i,
                 )
-
-        # Highlight Optimal Operating Point
         if annotate_best:
             best_coords = roc.get_coords(
                 x="best", best_method=best_method, ret=["specificity", "sensitivity"]
