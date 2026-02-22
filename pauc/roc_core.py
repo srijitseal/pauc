@@ -1,248 +1,224 @@
 import numpy as np
 from scipy.integrate import trapezoid
-from itertools import combinations
 
 
 class ROC:
-    """
-    Represents a Receiver Operating Characteristic (ROC) curve.
-
-    This class calculates the necessary components of a ROC curve (FPR, TPR, thresholds)
-    from true binary labels and predicted scores. It also computes the Area Under the
-    Curve (AUC).
-
-    Attributes:
-        y_true (np.ndarray): The ground truth binary labels.
-        y_score (np.ndarray): The predicted scores or probabilities for the positive class.
-        name (str): An optional name for the ROC curve, used for plotting legends.
-        cases (np.ndarray): Scores for the positive class (label == 1).
-        controls (np.ndarray): Scores for the negative class (label == 0).
-        n_cases (int): The number of positive samples.
-        n_controls (int): The number of negative samples.
-        thresholds (np.ndarray): The thresholds used to compute the curve.
-        fpr (np.ndarray): The false positive rates corresponding to each threshold.
-        tpr (np.ndarray): The true positive rates corresponding to each threshold.
-        auc (float): The Area Under the ROC Curve.
-    """
-
-    def __init__(self, y_true, y_score, name=None):
-        """
-        Initializes the ROC object and computes the curve.
-
-        Args:
-            y_true (list, np.ndarray): True binary labels (0 for negative, 1 for positive).
-            y_score (list, np.ndarray): Target scores, can be probability estimates of the
-                                       positive class, confidence values, or non-thresholded
-                                       measure of decisions.
-            name (str, optional): The name of the ROC curve. Defaults to None.
-        """
-        if not isinstance(y_true, np.ndarray):
-            y_true = np.asarray(y_true)
-        if not isinstance(y_score, np.ndarray):
-            y_score = np.asarray(y_score)
-        if y_true.ndim != 1 or y_score.ndim != 1:
-            raise ValueError("y_true and y_score must be 1-dimensional.")
-        if len(y_true) != len(y_score):
-            raise ValueError("y_true and y_score must have the same length.")
-        if len(np.unique(y_true)) != 2:
-            raise ValueError("y_true must contain only two unique binary labels.")
-
-        self.y_true = y_true
-        self.y_score = y_score
+    def __init__(
+        self,
+        y_true,
+        y_score,
+        name=None,
+        direction="auto",
+        percent=False,
+        partial_auc=None,
+        partial_auc_focus="specificity",
+        standardize_pauc=False,
+        drop_intermediate=True,
+    ):
+        self.y_true = np.asarray(y_true)
+        self.y_score = np.asarray(y_score)
         self.name = name
+        self.percent = percent
+        self.partial_auc_range = partial_auc
+        self.partial_auc_focus = partial_auc_focus
+        self.standardize_pauc = standardize_pauc
 
-        # We assume labels are 0 and 1, or can be mapped to them.
-        positive_label = np.max(y_true)
-        self.cases = self.y_score[self.y_true == positive_label]
-        self.controls = self.y_score[self.y_true != positive_label]
+        unique_labels = np.unique(self.y_true)
+        if len(unique_labels) != 2:
+            raise ValueError("y_true must contain exactly two unique binary labels.")
 
-        if len(self.cases) == 0:
-            raise ValueError("No positive samples found in y_true.")
-        if len(self.controls) == 0:
-            raise ValueError("No negative samples found in y_true.")
+        self.controls_label, self.cases_label = unique_labels[0], unique_labels[1]
+        self.controls = self.y_score[self.y_true == self.controls_label]
+        self.cases = self.y_score[self.y_true == self.cases_label]
+        self.n_controls, self.n_cases = len(self.controls), len(self.cases)
 
-        self.n_cases = len(self.cases)
-        self.n_controls = len(self.controls)
+        if direction == "auto":
+            self.direction = (
+                ">" if np.median(self.cases) < np.median(self.controls) else "<"
+            )
+        else:
+            self.direction = direction
 
-        self.thresholds, self.fpr, self.tpr = self._calculate_roc_points()
+        if self.direction == ">":
+            self.aligned_cases, self.aligned_controls = -self.cases, -self.controls
+            self.aligned_scores = -self.y_score
+        else:
+            self.aligned_cases, self.aligned_controls = self.cases, self.controls
+            self.aligned_scores = self.y_score
+
+        self._calculate_roc_points(drop_intermediate)
         self.auc = self._calculate_auc()
 
-    def _calculate_roc_points(self):
-        """Calculates the points of the ROC curve (FPR and TPR) for various thresholds."""
-        distinct_scores = np.unique(self.y_score)
-        thresholds = np.sort(distinct_scores)[::-1]
+    def _calculate_roc_points(self, drop_intermediate):
+        desc_score_indices = np.argsort(self.aligned_scores)[::-1]
+        self.sorted_scores = self.aligned_scores[desc_score_indices]
+        self.sorted_y_true = self.y_true[desc_score_indices]
 
-        tpr = np.zeros(len(thresholds) + 1)
-        fpr = np.zeros(len(thresholds) + 1)
-        tpr[0], fpr[0] = 0, 0  # Start at (0,0)
+        distinct_indices = np.where(np.diff(self.sorted_scores))[0]
+        threshold_indices = np.concatenate(
+            [distinct_indices, [len(self.sorted_scores) - 1]]
+        )
 
-        for i, thresh in enumerate(thresholds):
-            tp = np.sum(self.cases >= thresh)
-            fp = np.sum(self.controls >= thresh)
-            tpr[i + 1] = tp / self.n_cases
-            fpr[i + 1] = fp / self.n_controls
+        # Extract original distinct scores
+        original_unique = self.y_score[desc_score_indices][threshold_indices]
 
-        return thresholds, fpr, tpr
-
-    def _calculate_auc(self, fpr=None, tpr=None):
-        """Calculates the Area Under the Curve using the trapezoidal rule."""
-        if fpr is None:
-            fpr = self.fpr
-        if tpr is None:
-            tpr = self.tpr
-        return trapezoid(tpr, fpr)
-
-    def partial_auc(self, focus="specificity", bounds=(0.8, 1.0)):
-        """Calculates the partial area under the curve."""
-        if focus not in ["specificity", "sensitivity"]:
-            raise ValueError("focus must be either 'specificity' or 'sensitivity'")
-
-        min_bound, max_bound = sorted(bounds)
-
-        if focus == "specificity":
-            x_values = 1 - self.fpr
-            y_values = self.tpr
+        # Calculate midpoints like R's pROC
+        if len(original_unique) > 1:
+            midpoints = (original_unique[:-1] + original_unique[1:]) / 2.0
         else:
-            x_values = self.tpr
-            y_values = 1 - self.fpr
+            midpoints = np.array([])
 
-        # Create a finer grid for interpolation to handle bounds precisely
-        fine_x = np.linspace(x_values.min(), x_values.max(), 1000)
-        fine_y = np.interp(fine_x, x_values, y_values)
-
-        indices = np.where((fine_x >= min_bound) & (fine_x <= max_bound))
-        bounded_x = fine_x[indices]
-        bounded_y = fine_y[indices]
-
-        if len(bounded_x) < 2:
-            return 0.0
-
-        if focus == "specificity":
-            p_fpr, p_tpr = 1 - bounded_x, bounded_y
+        if self.direction == ">":
+            self.thresholds = np.concatenate([[-np.inf], midpoints, [np.inf]])
         else:
-            p_fpr, p_tpr = bounded_y, bounded_x
+            self.thresholds = np.concatenate([[np.inf], midpoints, [-np.inf]])
 
-        sort_order = np.argsort(p_fpr)
-        return self._calculate_auc(fpr=p_fpr[sort_order], tpr=p_tpr[sort_order])
+        tps = np.concatenate(
+            [[0], np.cumsum(self.sorted_y_true == self.cases_label)[threshold_indices]]
+        )
+        fps = np.concatenate(
+            [
+                [0],
+                np.cumsum(self.sorted_y_true == self.controls_label)[threshold_indices],
+            ]
+        )
 
-    def get_coords(self, x, input="threshold", best_method="youden"):
-        """Returns coordinates of the ROC curve at specified points."""
+        self.tpr = tps / self.n_cases
+        self.fpr = fps / self.n_controls
+        self.specificity = 1 - self.fpr
+
+        if self.percent:
+            self.tpr *= 100
+            self.fpr *= 100
+            self.specificity *= 100
+
+    def _calculate_auc(self):
+        if self.partial_auc_range is None:
+            return trapezoid(self.tpr, self.fpr)
+
+        min_r, max_r = self.partial_auc_range
+
+        if self.partial_auc_focus == "specificity":
+            low_fpr, high_fpr = 1 - max_r, 1 - min_r
+            x_vals = np.sort(np.unique(np.concatenate([self.fpr, [low_fpr, high_fpr]])))
+            x_vals = x_vals[(x_vals >= low_fpr) & (x_vals <= high_fpr)]
+            y_vals = np.interp(x_vals, self.fpr, self.tpr)
+
+            pauc = trapezoid(y_vals, x_vals)
+
+            if self.standardize_pauc:
+                max_area = high_fpr - low_fpr
+                min_area = 0.5 * (high_fpr**2 - low_fpr**2)
+                return 0.5 * (1 + (pauc - min_area) / (max_area - min_area))
+            return pauc
+
+        elif self.partial_auc_focus == "sensitivity":
+            # Interpolate FPR boundaries based on constraints along the TPR axis
+            x_vals = np.sort(np.unique(np.concatenate([self.tpr, [min_r, max_r]])))
+            x_vals = x_vals[(x_vals >= min_r) & (x_vals <= max_r)]
+            y_vals = np.interp(x_vals, self.tpr, self.fpr)
+
+            # Integrate 1 - FPR (Specificity) horizontally over the TPR axis
+            pauc = trapezoid(1 - y_vals, x_vals)
+
+            if self.standardize_pauc:
+                max_area = max_r - min_r
+                min_area = (max_r - min_r) - 0.5 * (max_r**2 - min_r**2)
+                return 0.5 * (1 + (pauc - min_area) / (max_area - min_area))
+            return pauc
+
+        return 0.0
+
+    def get_coords(
+        self,
+        x="best",
+        input="threshold",
+        ret=["specificity", "sensitivity"],
+        best_method="youden",
+    ):
         if x == "best":
             if best_method == "youden":
-                best_idx = np.argmax(self.tpr - self.fpr)
-            elif best_method == "closest_topleft":
-                dist = np.sqrt((self.fpr**2) + ((1 - self.tpr) ** 2))
-                best_idx = np.argmin(dist)
-            else:
-                raise ValueError("best_method must be 'youden' or 'closest_topleft'")
-
-            threshold = self.thresholds[best_idx - 1] if best_idx > 0 else float("inf")
-            return {
-                "threshold": threshold,
-                "specificity": 1 - self.fpr[best_idx],
-                "sensitivity": self.tpr[best_idx],
-            }
-
-        if not isinstance(x, (int, float, np.number)):
-            raise ValueError("x must be 'best' or a numeric value.")
+                idx = np.argmax(self.tpr + (1 - self.fpr) - 1)
+            elif best_method == "topleft":
+                idx = np.argmin(self.fpr**2 + (1 - self.tpr) ** 2)
+            x, input = self.thresholds[idx], "threshold"
 
         if input == "threshold":
-            best_idx = np.argmin(np.abs(self.thresholds - x))
-            idx = best_idx + 1
-            return {
-                "threshold": self.thresholds[best_idx],
-                "specificity": 1 - self.fpr[idx],
-                "sensitivity": self.tpr[idx],
-            }
-        elif input == "specificity":
-            spec = 1 - self.fpr
-            xp, fp = spec[::-1], self.tpr[::-1]  # make increasing
-            return {"specificity": x, "sensitivity": np.interp(x, xp, fp)}
-        elif input == "sensitivity":
-            xp, fp = self.tpr, 1 - self.fpr
-            sort_idx = np.argsort(xp)  # ensure increasing
-            return {
-                "sensitivity": x,
-                "specificity": np.interp(x, xp[sort_idx], fp[sort_idx]),
-            }
-        else:
-            raise ValueError(
-                "input must be one of 'threshold', 'specificity', 'sensitivity'"
+            indices = (
+                np.arange(len(self.thresholds))
+                if x == "all"
+                else [np.abs(self.thresholds - x).argmin()]
             )
+        elif input == "specificity":
+            target = x if not self.percent else x / 100.0
+            indices = [np.abs((1 - self.fpr) - target).argmin()]
+        elif input == "sensitivity":
+            target = x if not self.percent else x / 100.0
+            indices = [np.abs(self.tpr - target).argmin()]
+
+        idx = np.array(indices)
+        tp, fp = self.tpr[idx] * self.n_cases, self.fpr[idx] * self.n_controls
+        tn, fn = self.n_controls - fp, self.n_cases - tp
+
+        metrics_map = {
+            "threshold": self.thresholds[idx],
+            "specificity": 1 - self.fpr[idx],
+            "sensitivity": self.tpr[idx],
+            "accuracy": (tp + tn) / (self.n_cases + self.n_controls),
+            "ppv": np.divide(
+                tp, (tp + fp), out=np.zeros_like(tp), where=(tp + fp) != 0
+            ),
+            "npv": np.divide(
+                tn, (tn + fn), out=np.zeros_like(tn), where=(tn + fn) != 0
+            ),
+            "fpr": self.fpr[idx],
+            "tpr": self.tpr[idx],
+        }
+        out = {k: metrics_map[k] for k in ret if k in metrics_map}
+        if x != "all" and not isinstance(x, (list, np.ndarray)):
+            return {k: v[0] if isinstance(v, np.ndarray) else v for k, v in out.items()}
+        return out
 
     def __repr__(self):
-        """Provides a user-friendly string representation of the ROC object."""
-        header = f"ROC curve '{self.name}':" if self.name else "ROC curve:"
-        return f"{header}\n - {self.n_cases} cases, {self.n_controls} controls\n - AUC: {self.auc:.3f}"
-
-
-class SmoothedROC(ROC):
-    """Represents a smoothed ROC curve."""
-
-    def __init__(self, original_roc, smoothed_fpr, smoothed_tpr):
-        self.y_true, self.y_score, self.name = (
-            None,
-            None,
-            f"Smoothed {original_roc.name}" if original_roc.name else "Smoothed ROC",
+        name_str = f"'{self.name}' " if self.name else ""
+        pauc_str = f" (pAUC={self.partial_auc_range})" if self.partial_auc_range else ""
+        return (
+            f"<ROC {name_str}AUC={self.auc:.4f}{pauc_str} "
+            f"| Cases: {self.n_cases}, Controls: {self.n_controls}>"
         )
-        self.cases, self.controls = None, None
-        self.n_cases, self.n_controls = original_roc.n_cases, original_roc.n_controls
-        self.thresholds = None
-        self.fpr, self.tpr = smoothed_fpr, smoothed_tpr
-        self.auc = self._calculate_auc()
 
 
 class MultiClassROC:
-    # ... (keep __init__, _calculate_multiclass_auc, and __repr__ the same) ...
-    def __init__(self, y_true, y_score_probs):
+    def __init__(self, y_true, y_score_matrix):
+        """Hand and Till (2001) Multiclass AUC"""
         self.y_true = np.asarray(y_true)
-        self.y_score_probs = np.asarray(y_score_probs)
-        self.labels = np.unique(y_true)
-        if len(self.labels) < 3:
-            raise ValueError("MultiClassROC is for 3 or more classes.")
-        if self.y_score_probs.shape[1] != len(self.labels):
-            raise ValueError(
-                "Number of columns in y_score_probs must match number of unique labels."
-            )
+        self.y_score_matrix = np.asarray(
+            y_score_matrix
+        )  # shape: (n_samples, n_classes)
+        self.classes = np.unique(self.y_true)
+        self.n_classes = len(self.classes)
 
-        self.pairwise_rocs = {}
-        self._calculate_pairwise_rocs()
-        self.auc = self._calculate_multiclass_auc()
+        self.aucs = {}
+        total_auc = 0
+        pairs = 0
 
-    def _calculate_pairwise_rocs(self):
-        """Creates ROC objects for every pair of classes."""
-        # Loop over the integer indices of the labels, not the labels themselves
-        for i, j in combinations(range(len(self.labels)), 2):
-            label1, label2 = self.labels[i], self.labels[j]
+        for i in range(self.n_classes):
+            for j in range(i + 1, self.n_classes):
+                c1, c2 = self.classes[i], self.classes[j]
+                mask = (self.y_true == c1) | (self.y_true == c2)
+                y_sub = self.y_true[mask]
 
-            indices = np.where((self.y_true == label1) | (self.y_true == label2))
-            y_true_pair = self.y_true[indices]
+                # c1 vs c2
+                roc1 = ROC(y_sub == c1, self.y_score_matrix[mask, i])
+                # c2 vs c1
+                roc2 = ROC(y_sub == c2, self.y_score_matrix[mask, j])
 
-            # Use the integer index 'j' to select the correct probability column
-            y_score_pair = self.y_score_probs[indices[0], j]
+                pair_auc = (roc1.auc + roc2.auc) / 2.0
+                self.aucs[(c1, c2)] = pair_auc
+                total_auc += pair_auc
+                pairs += 1
 
-            # Convert to binary
-            y_true_binary = (y_true_pair == label2).astype(int)
-
-            roc_name = f"'{label1}' vs '{label2}'"
-            # The key for the dictionary can remain the label values
-            self.pairwise_rocs[(label1, label2)] = ROC(
-                y_true_binary, y_score_pair, name=roc_name
-            )
-
-    def _calculate_multiclass_auc(self):
-        """Calculates the multiclass AUC using Hand and Till's formula."""
-        auc_sum = sum(roc.auc for roc in self.pairwise_rocs.values())
-        c = len(self.labels)
-        return (2 / (c * (c - 1))) * auc_sum
+        self.auc = total_auc / pairs
 
     def __repr__(self):
-        header = f"Multi-class ROC analysis ({len(self.labels)} classes)\n"
-        pairwise_aucs = "\n".join(
-            [
-                f" - {roc.name}: AUC = {roc.auc:.3f}"
-                for roc in self.pairwise_rocs.values()
-            ]
-        )
-        return f"{header} - Average AUC (Hand & Till): {self.auc:.3f}\n\nPairwise AUCs:\n{pairwise_aucs}"
-
+        return f"<MultiClassROC AUC={self.auc:.4f} | Classes: {self.n_classes}>"
