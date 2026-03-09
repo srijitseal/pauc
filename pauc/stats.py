@@ -163,6 +163,12 @@ def compare(roc1, roc2, method="delong", paired=True, stratified=True, n_boot=20
             diff_obs,
         )
 
+    elif method == "venkatraman":
+        return venkatraman_test(roc1, roc2, n_perm=n_boot, paired=paired)
+
+    else:
+        raise ValueError(f"Unknown comparison method: '{method}'")
+
 
 def ci_auc(roc, conf_level=0.95, method="delong", n_boot=2000):
     alpha = 1 - conf_level

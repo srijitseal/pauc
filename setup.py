@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="pauc",
-    version="0.2.1",
+    version="0.2.2",
     author="Manas Mahale, Srijit Seal",
     description="A Python library for ROC curve analysis, comparison, and visualization.",
     long_description=long_description,
